@@ -1,16 +1,13 @@
 {
   "name": "BlankProcess37",
+  "projectId": "51f4f022-a827-4a39-bab2-ae080615b23c",
   "description": "Blank Process",
   "main": "Main.xaml",
   "dependencies": {
-    "Microsoft.Extensions.Configuration.Abstractions": "[3.1.6]",
-    "Microsoft.Windows.Compatibility": "[5.0.0]",
-    "UiPath.Excel.Activities": "[2.16.2]",
-    "UiPath.Mail.Activities": "[1.18.2]",
-    "UiPath.MicrosoftOffice365.Activities": "[2.0.3]",
-    "UiPath.System.Activities": "[22.10.4]",
-    "UiPath.Testing.Activities": "[22.10.3]",
-    "UiPath.UIAutomation.Activities": "[22.10.5]"
+    "UiPath.Excel.Activities": "[2.22.4]",
+    "UiPath.Mail.Activities": "[1.22.2]",
+    "UiPath.System.Activities": "[23.10.6]",
+    "UiPath.UIAutomation.Activities": "[23.10.12]"
   },
   "webServices": [],
   "entitiesStores": [],
@@ -24,6 +21,7 @@
     "isAttended": false,
     "requiresUserInteraction": true,
     "supportsPersistence": false,
+    "workflowSerialization": "DataContract",
     "excludedLoggedData": [
       "Private:*",
       "*password*"
@@ -45,7 +43,8 @@
       "ignoredFiles": []
     },
     "fileInfoCollection": [],
-    "modernBehavior": true
+    "modernBehavior": true,
+    "saveToCloud": false
   },
   "expressionLanguage": "CSharp",
   "entryPoints": [
