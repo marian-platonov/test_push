@@ -6,7 +6,7 @@
         "Annotation": null,
         "Id": "ef9de3bb-2187-4f12-868f-3ead4da157d6",
         "ActivityIdRef": "LogMessage_2",
-        "ActivityId": "1.8",
+        "ActivityId": "1.11",
         "ActivityName": "Log Message",
         "IsTransient": false
       },
@@ -15,7 +15,7 @@
         "Annotation": null,
         "Id": "1d463223-cfa2-451f-889d-f2e62032f0c8",
         "ActivityIdRef": "LogMessage_3",
-        "ActivityId": "1.5",
+        "ActivityId": "1.8",
         "ActivityName": "Log Message",
         "IsTransient": false
       },
@@ -24,7 +24,16 @@
         "Annotation": null,
         "Id": "becb7419-6a79-490b-b35f-b394328bac1f",
         "ActivityIdRef": "LogMessage_4",
-        "ActivityId": "1.2",
+        "ActivityId": "1.5",
+        "ActivityName": "Log Message",
+        "IsTransient": false
+      },
+      {
+        "IsEnabled": true,
+        "Annotation": null,
+        "Id": "b16feb30-d03a-42ce-84ad-57c35ee415ff",
+        "ActivityIdRef": "LogMessage_5",
+        "ActivityId": "1.5",
         "ActivityName": "Log Message",
         "IsTransient": false
       }
