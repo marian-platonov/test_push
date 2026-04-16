@@ -23,7 +23,7 @@ stages:
             "Content-Type" = "application/x-www-form-urlencoded"
           }
 
-          $body = "grant_type=client_credentials&client_id=82ca2870-de0f-4329-97db-45485ee544fc&client_secret=%3Frd(HhmkOjkC8LLn&scope=OR.Assets%20OR.BackgroundTasks%20OR.Execution%20OR.Folders%20OR.Jobs%20OR.Machines.Read%20OR.Monitoring%20OR.Queues%20OR.Robots.Read%20OR.Settings.Read%20OR.TestSetExecutions%20OR.TestSets%20OR.TestSetSchedules%20OR.Users.Read"
+          $body = "grant_type=client_credentials&client_id=12ca2870-de0f-4329-97db-45485ee544fc&client_secret=%3Frd(HhmkOjkC8LLn&scope=OR.Assets%20OR.BackgroundTasks%20OR.Execution%20OR.Folders%20OR.Jobs%20OR.Machines.Read%20OR.Monitoring%20OR.Queues%20OR.Robots.Read%20OR.Settings.Read%20OR.TestSetExecutions%20OR.TestSets%20OR.TestSetSchedules%20OR.Users.Read"
 
           try {
             $response = Invoke-RestMethod `
