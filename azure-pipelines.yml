@@ -1,248 +1,65 @@
-parameters:
-# The full path to the folder containing the project.json file for this pipeline
-- name: 'projectPath'
-  default: '.'
-  type: string
-# The name of the folder to deploy the package to.
-- name: 'folderName'
-  default: 'AzureDevOps'
-  type: string
-# Either AutoVersion to generate a build number or CurrentVersion to match the project.json version.
-- name: 'versioningStrategy'
-  default: 'CurrentVersion'
-  type: string
-
-
-# This pipeline is broken into stages for the approval functionality. Stages are ran independantly, which means the pipeline can pause until the approval is received. 
+# Pipeline uses stages so approvals can pause execution between stages
 stages:
-# Build the nuget package.
+
+# =========================
+# BUILD STAGE (no approval)
+# =========================
 - stage: Build
+  displayName: Build & Validate
   jobs:
-  - job: PackAndDeployProcess
-    pool: Default # Update this if using dedicated build pool
-    #pool: Azure Pipelines
-
-
+  - job: PackAndValidate
+    displayName: Pack and validate artifacts
+    pool: Default
     workspace:
       clean: all
+
     steps:
-      # Install the .net 6.0.32
-      #- task: UseDotNet@2
-        #inputs:
-          #packageType: 'runtime'
-          #version: '6.0.32'
-      #- task: UseDotNet@2
-        #inputs:
-          #packageType: 'sdk'
-          #version: '6.0.x'
-        #displayName: 'Installing .NET SDK 6.0.x'
+    - task: PowerShell@2
+      displayName: 'Test UiPath cloud access_token retrieval'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $headers = @{
+            "Content-Type" = "application/x-www-form-urlencoded"
+          }
 
-      - task: PowerShell@2
-        displayName: 'Test the cloud.uipath.com access_token retrieval'
-        inputs:
-          targetType: 'inline'
-          script: |
-            # Test access_token retrieval
-            
-            $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-            $headers.Add("Content-Type", "application/x-www-form-urlencoded")
-            
-            $body = "grant_type=client_credentials&client_id=82ca2870-de0f-4329-97db-45485ee544fc&client_secret=%3Frd(HhmkOjkC8LLn&scope=OR.Assets%20OR.BackgroundTasks%20OR.Execution%20OR.Folders%20OR.Jobs%20OR.Machines.Read%20OR.Monitoring%20OR.Queues%20OR.Robots.Read%20OR.Settings.Read%20OR.TestSetExecutions%20OR.TestSets%20OR.TestSetSchedules%20OR.Users.Read"
-            
-            $response = Invoke-RestMethod 'https://cloud.uipath.com/identity_/connect/token' -Method 'POST' -Headers $headers -Body $body
-            $response | ConvertTo-Json
-          errorActionPreference: 'silentlyContinue'
-          warningPreference: 'silentlyContinue'
-          verbosePreference: 'silentlyContinue'
-      - task: UseDotNet@2
-        inputs:
-          packageType: 'sdk'
-          version: '8.0.x'
-        displayName: 'Installing .NET SDK 8.0.x'
-      #- task: UseDotNet@2
-        #inputs:
-          #packageType: 'sdk'
-          #version: '6.0.428'
-      #- task: UseDotNet@2
-        #inputs:
-          #packageType: 'runtime'
-          #version: '8.0.13'
-        #displayName: 'Installing .NET Runtime 8.0.13'
-          
-      #- task: UiPathInstallPlatform@5
-        #inputs:
-          #cliVersion: 'WIN_23.10.8894.39673'
-          #cliNupkgPath: '$(Agent.ToolsDirectory)\nupkg\UiPath.CLI.xx.xx.xx.nupkg' If not using the default version, UiPath CLI nupkg needs to be downloaded manually and placed it inside the path e.g $(Agent.ToolsDirectory)\nupkg\UiPath.CLI.xx.xx.xx.nupkg
-        #displayName: 'Installing UiPath CLI'
+          $body = "grant_type=client_credentials&client_id=12345&client_secret=REPLACE_ME&scope=OR.Assets OR.BackgroundTasks OR.Execution"
 
-     # - task: UiPathInstallPlatform@5
-      #  inputs:
-      #    cliVersion: 'WIN_25.4.9337.28376'
-      #  displayName: 'Installing UiPath Windows CLI.25.4.9337.28376'
+          try {
+            $response = Invoke-RestMethod `
+              -Uri 'https://cloud.uipath.com/identity_/connect/token' `
+              -Method POST `
+              -Headers $headers `
+              -Body $body
 
+            Write-Host "Token retrieved successfully"
+          }
+          catch {
+            Write-Error "Failed to retrieve token"
+            throw
+          }
 
+# ======================================
+# DEPLOY STAGE (WITH ENV APPROVAL)
+# ======================================
+- stage: Deploy_NonProd
+  displayName: Deploy to NonProd
+  dependsOn: Build
+  condition: succeeded()
 
-      #- task: CopyFiles@2
-        #inputs:
-          #SourceFolder: 'C:\azagent'
-          #Contents: 'nuget.config'
-          #TargetFolder: '$(Agent.ToolsDirectory)/uipcli'
-          #OverWrite: true
-        #displayName: 'Copy nuget.config file From SourceFolder to TargetFolder'
+  jobs:
+  - deployment: DeployUiPath
+    displayName: Deploy UiPath package
+    environment: uipath-nonprod   # 👈 THIS is where approvals attach
+    pool: Default
 
-      #- task: UiPathInstallPlatform@6
-        #inputs:
-          #cliVersion: 'CustomVersion'
-          #cliNupkgPath: 'C:\Users\marian.platonov\Desktop\UiPath CLI\UiPath.CLI.Windows.25.10.5.nupkg'
-        
-      - task: UiPathInstallPlatform@6
-        inputs:
-          cliVersion: 'Windows.25.10.7'
-
-      #- task: UiPathInstallPlatform@6
-        #inputs:
-          #cliVersion: 'Windows.25.10.3'
-      - task: PowerShell@2
-        displayName: 'Create or Update UiPath nuget.config'
-        inputs:
-          targetType: 'inline'
-          script: |
-            $nugetConfigPath = "$(Agent.ToolsDirectory)/uipcli/nuget.config"
-            
-            # Ensure the directory exists
-            $directory = Split-Path -Path $nugetConfigPath -Parent
-            if (-not (Test-Path -Path $directory)) {
-              New-Item -ItemType Directory -Path $directory -Force
-            }
-            
-            # Create XML content without leading whitespace
-            $xml = '<?xml version="1.0" encoding="utf-8"?>'
-            $xml += "`r`n" + '<configuration>'
-            $xml += "`r`n" + '  <packageSources>'
-            #$xml += "`r`n" + '    <clear />'
-            $xml += "`r`n" + '    <add key="SLM_Nexus" value="https://repo.internal.slmbank.net:8084/repository/nuget-group-salliemae-v3/index.json" protocolVersion="3" />'
-            $xml += "`r`n" + '  </packageSources>'
-            $xml += "`r`n" + '  <config>'
-            $xml += "`r`n" + '    <add key="signatureValidationMode" value="accept" />'
-            $xml += "`r`n" + '  </config>'
-            $xml += "`r`n" + '</configuration>'
-            
-            $utf8Bom = New-Object System.Text.UTF8Encoding $true
-            [System.IO.File]::WriteAllText($nugetConfigPath, $xml, $utf8Bom)
-            Write-Host "Created/Updated nuget.config at: $nugetConfigPath"
-
-      #- task: CopyFiles@2
-        #displayName: 'Copy nuget.config file From $(Agent.ToolsDirectory) to $(Agent.ToolsDirectory)/uipcli/nuget.config'
-        #inputs:
-            #SourceFolder: '$(Agent.ToolsDirectory)'
-            #Contents: 'nuget.config'
-            #TargetFolder: '$(Agent.ToolsDirectory)/uipcli'
-
-
-      - task: UiPathPack@6
-        inputs:
-          projectJsonPath: 'C:\\Users\\marian.platonov\\Downloads\\Issue 2\\IPACEUiPathGenericLibrary'
-          versionType: 'AutoVersion'
-          outputPath: '$(Build.ArtifactStagingDirectory)\Output'
-          outputType: 'Library'
-          splitOutput: false
-          orchestratorConnection: 'UiPathCloudmarianplatonov2025connection'
-          traceLevel: 'Verbose'
-      
-      #- task: UiPathPack@6
-        #displayName: 'Packing process with the UiPathPack@6 task'
-        #inputs:
-          #projectJsonPath: 'C:\\Users\\marian.platonov\\Documents\\UiPath\\BlankProcess93\\project.json'
-          #versionType: 'CurrentVersion'
-          #outputPath: '$(Build.ArtifactStagingDirectory)\\Output'
-          #disableBuiltInNugetFeeds: true
-          #orchestratorConnection: 'UiPathCloudmarianplatonov2025connection'
-          #traceLevel: 'Verbose'
-
-      #- task: UiPathPack@5
-        #inputs:
-          #versionType: 'AutoVersion'
-          #projectJsonPath: 'C:\Users\marian.platonov\Desktop\Customer Issues\Files\IAMADAccessManagementPerformer\IAMADAccessManagementPerformer\project.json'
-          #disableBuiltInNugetFeeds: true
-          #orchestratorConnection: 'UiPathCloudmarianplatonov2025connection'
-          #outputPath: '$(Build.ArtifactStagingDirectory)\Output'
-          #traceLevel: 'Verbose'
-        #displayName: 'Packing process with the UiPathPack@5 task'
-        
-     # - task: UiPathPack@5
-      #  inputs:
-          #versionType: 'AutoVersion'
-          #versionType: 'CurrentVersion'
-        #  versionType: 'ManualVersion'
-         # version: '1.0.2'
-        #  projectJsonPath: 'C:\Users\marian.platonov\Documents\UiPath\O365SaveEmailAttachements'
-         # disableBuiltInNugetFeeds: false
-        #  orchestratorConnection: 'UiPathCloudmarianplatonov2025connection'
-        #  outputPath: '$(Build.ArtifactStagingDirectory)\Output'
-        #  traceLevel: 'Verbose'
-        #  releaseNotes: 'New release test2'
-       # displayName: 'Packing process with the UiPathPack@5 task'
-
-      
-      
-    #  - task: UiPathDeploy@5
-     #   inputs:
-     #     orchestratorConnection: 'UiPathCloudmarianplatonov2025connection'
-     #     packagesPath: '$(Build.ArtifactStagingDirectory)\Output'
-    #      folderName: 'AzureDevOps'
-     #     processName: 'CustomersTestPackageRequirements'
-      #    createProcess: true
-      #    traceLevel: 'Verbose'
-
-      #- task: UiPathTest-preview@4
-        #inputs:
-          #testTarget: 'TestSet'
-          #orchestratorConnection: 'UiPath Cloud Connection for marianplatonov'
-          #testSet: 'TestAutomationProject3'
-         # folderName: 'Test Cases'
-         # testReportDestination: '$(Build.ArtifactStagingDirectory)\drop'
-         # retryCount: 2
-          #traceLevel: 'Verbose'
-         # attachRobotLogs: true
-          
-      #- task: UiPathPack@4
-        #inputs:
-         #versionType: 'AutoVersion'
-         #projectJsonPath: 'C:\Users\marian.platonov\Downloads\content (1)\content\project.json'
-         #orchestratorConnection: 'UiPathCloudmarianplatonovNewConnection'
-         #outputPath: '$(Build.ArtifactStagingDirectory)\Output'
-         #traceLevel: 'Verbose'
-        #displayName: 'Packing process with the UiPathPack@4 task'
-      
-      #- task: UiPathInstallPlatform@4  # This installs required exes. Not necessary if using a dedicated build machine.
-      #- task: UiPathInstallPlatform-preview@4
-        #inputs:
-          #cliVersion: 'WIN_23.10.8753.32995'
-          #cliNupkgPath: 'C:\Users\marian.platonov\Desktop\UiPath CLI\UiPath.CLI.Windows.23.10.8753.32995.nupkg'
-          #cliNupkgPath: '$(Agent.ToolsDirectory)\nupkg\UiPath.CLI.Windows.23.10.8753.32995.nupkg'
-
-      #- task: UiPathPack-preview@4
-        #inputs:
-          #versionType: 'AutoVersion'
-          #projectJsonPath: 'C:\Users\marian.platonov\Desktop\UiPath CLI\Test_project\TestInsertimageWindows\project.json'
-          #outputType: 'Process'
-          #orchestratorConnection: 'UiPath Cloud Connection for marianplatonov'
-          #outputPath: '$(Build.ArtifactStagingDirectory)\Output'
-          #traceLevel: 'Verbose'
-
-      #- task: UiPathDeploy-preview@4
-        #inputs:
-          #orchestratorConnection: 'UiPath Cloud Connection for marianplatonov'
-          #packagesPath: '$(Build.ArtifactStagingDirectory)\Output'
-          #folderName: 'AzureDevOps'
-          #traceLevel: 'Verbose'
-
-      #- task: UiPathTest-preview@4
-        #inputs:
-          #testTarget: 'TestProject'
-          #orchestratorConnection: 'UiPath Cloud Connection for marianplatonov'
-          #testProjectPath: 'C:\Users\marian.platonov\Desktop\UiPath CLI\TestAutomationProject3.1.0.145194094\content\project.json'
-          #folderName: 'Test Cases'
-          #testReportDestination: '$(Build.ArtifactStagingDirectory)\drop'
-          #traceLevel: 'Verbose'
-          #attachRobotLogs: true
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: PowerShell@2
+            displayName: 'Deploy package to UiPath NonProd'
+            inputs:
+              targetType: 'inline'
+              script: |
+                Write-Host "Deploying NuGet / UiPath package to NonProd..."
